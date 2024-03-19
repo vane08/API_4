@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convoluciones</title>
+</head>
+<body>
+   <!--Canvas nos sirve para trabajar con pixeles -->
+    <canvas id="canvas"></canvas>
+    <!--Este Canvas nos mostrara los resultados de las convoluciones -->
+    <canvas id="resultado"></canvas>
+
+    <!-- Cargamos la imagen con la que vamos a trabajar-->
+    <script type="text/javascript">       
+        var image = new Image();
+        image.onload = imageLoaded;
+        image.src = "yo.jpg";
+
+        //Le indicamos que tome la imagen antes cargada
+        function imageLoaded(){
+           var canvas = document.getElementById("canvas");
+           var ctx = canvas.getContext("2d");
+
+           //Le damos tamaño al canvas
+           canvas.width = image.width;
+           canvas.height = image.height;
+
+           //Le indicamos que queremos dibujar,
+           //Donde va a comenzar
+           //Ancho y Alto
+           ctx.drawImage(image, 0, 0, image.width, image.height)
+
+           //Pasamos lo que tenemos en el canvas a blanco y negro 
+           blancoYnegro(canvas);
+
+           var resultado = document.getElementById("resultado");
+           //Le indicamos que Canvas va a utilizar 
+           //y en donde lo quiero poner
+           convolucionar(canvas, resultado);
+
+        }
+
+        function blancoYnegro(canvas){
+            var ctx = canvas.getContext("2d"); 
+            var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var pixeles = imgData.data;
+            
+            //Va a recorrer cada PIXEL, de 4 en 4,
+            //Tomando en cuenta que son 4 colores los que se toman en cuenta
+            for (var p=0; p < pixeles.length; p += 4){
+                //Con esto ya se tiene toda la informacion del pixel
+                var rojo = pixeles[p];
+                var verde = pixeles[p + 1];
+                var azul = pixeles[p + 2];
+                var alpha = pixeles[p + 3];
+
+                //Se esta sacando un promedio de la colorizacion y 
+                //lo colocamos en la variable GRIS
+                //para despues asignarle a todos los pixeles el mismo valor de gris
+                var gris = (rojo + verde + azul) / 3;
+
+                //rojo: 50, verde: 120, azul:230
+                //gris: 50+120+230 = 400 / 3
+                pixeles[p] = gris;
+                pixeles[p + 1] = gris;
+                pixeles[p + 2] = gris;
+
+            }
+
+            //Volvemos a indicarle lo que va a mostrar, es decir la imagen a blanco y negro
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function convolucionar(canvasFuente, canvasDestino) {
+            //Obtener todas las variables necesarias para poder trabajar
+            var ctxFuente = canvasFuente.getContext("2d");
+            var imgDataFuente = ctxFuente.getImageData(0, 0, canvasFuente.width, canvasFuente.height);
+            var pixelesFuente = imgDataFuente.data;
+
+            canvasDestino.width = canvasFuente.width;
+            canvasDestino.height = canvasFuente.height;
+
+            var ctxDestino = canvasDestino.getContext("2d");
+            var imgDataDestino = ctxDestino.getImageData(0, 0, canvasDestino.width, canvasDestino.height);
+            var pixelesDestino = imgDataDestino.data;
+
+           
+            //Nucleo, kernel
+            /*var kernel = [
+                [-1,-1,-1],
+                [-1, 8,-1],
+                [-1,-1,-1],
+            ];
+
+             //Nucleo, kernel
+             var kernel = [
+                [-0,-1,-0],
+                [-1, 5,-1],
+                [ 0,-1, 0],
+            ];*/
+
+             //Nucleo, kernel
+             var sobelVertical = [
+                [-1, 0, 1],
+                [-2, 0, 2],
+                [-1, 0, 1],
+            ];
+
+            var sobelHorizontal = [
+                [-1,-2,-1],
+                [ 0, 0, 0],
+                [ 1, 2, 1],
+            ];
+
+
+            //Empezamos a iterar con los pixeles
+            for (var y=1; y < canvasFuente.height - 1; y++ ){
+                for (var x=1; x < canvasFuente.width - 1; x++){
+                    
+                    //Posicion en el arreglo javascript
+                    var idx = ((y * canvasFuente.width) + x) * 4;
+
+                    var totalY = 0;
+                    var totalX = 0;
+
+                    for (var kernelY = 0; kernelY < 3; kernelY++){
+                        for (var kernelX = 0; kernelX < 3; kernelX++){
+
+                            totalY += sobelVertical [kernelY][kernelX]  *  
+                                pixelesFuente[((((y + (kernelY - 1))*canvasFuente.width) + (x + (kernelX - 1))) * 4)];
+                                
+                            totalX += sobelHorizontal  [kernelY][kernelX]  *  
+                                pixelesFuente[((((y + (kernelY - 1))*canvasFuente.width) + (x + (kernelX - 1))) * 4)];  
+                        }
+                    }
+
+                    var mag = Math.sqrt(( totalX *  totalX ) + (totalY + totalY));;
+
+                    //Convolucion con Sobel
+                     /*var casillaY1 = sobelVertical [0][0]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casillaY2 = sobelVertical [0][1]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x)) * 4)]; 
+                     var casillaY3 = sobelVertical [0][2]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x + 1)) * 4)]; 
+                     var casillaY4 = sobelVertical [1][0]  *  pixelesFuente[((((y)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casillaY5 = sobelVertical [1][1]  *  pixelesFuente[((((y)*canvasFuente.width) + (x)) * 4)]; 
+                     var casillaY6 = sobelVertical [1][2]  *  pixelesFuente[((((y)*canvasFuente.width) + (x + 1)) * 4)]; 
+                     var casillaY7 = sobelVertical [2][0]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casillaY8 = sobelVertical [2][1]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x)) * 4)]; 
+                     var casillaY9 = sobelVertical [2][2]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x + 1)) * 4)];   
+
+                     var resultadoY = casillaY1 + casillaY2 + casillaY3 + casillaY4 +
+                                  casillaY5 + casillaY6 + casillaY7 + casillaY8 + casillaY9;
+
+                     var casillaX1 = sobelHorizontal [0][0]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casillaX2 = sobelHorizontal [0][1]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x)) * 4)]; 
+                     var casillaX3 = sobelHorizontal [0][2]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x + 1)) * 4)]; 
+                     var casillaX4 = sobelHorizontal [1][0]  *  pixelesFuente[((((y)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casillaX5 = sobelHorizontal [1][1]  *  pixelesFuente[((((y)*canvasFuente.width) + (x)) * 4)]; 
+                     var casillaX6 = sobelHorizontal [1][2]  *  pixelesFuente[((((y)*canvasFuente.width) + (x + 1)) * 4)]; 
+                     var casillaX7 = sobelHorizontal [2][0]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casillaX8 = sobelHorizontal [2][1]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x)) * 4)]; 
+                     var casillaX9 = sobelHorizontal [2][2]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x + 1)) * 4)];   
+
+                     var resultadoX = casillaX1 + casillaX2 + casillaX3 + casillaX4 +
+                                  casillaX5 + casillaX6 + casillaX7 + casillaX8 + casillaX9;
+                      */
+                     //var mag = Math.sqrt((resultadoX*resultadoX) + (resultadoY*resultadoY));
+
+                     mag = (mag < 40) ? 0 : mag; //Limite, threshold
+
+                     pixelesDestino[idx] = mag; //rojo
+                     pixelesDestino[idx + 1] =mag; //verde
+                     pixelesDestino[idx + 2] =mag; //azul
+                     pixelesDestino[idx + 3] =255; //alpha*/
+
+                    /*pixelesDestino[idx] =resultadoX; //rojo
+                    pixelesDestino[idx + 1] =resultadoX; //verde
+                    pixelesDestino[idx + 2] =resultadoX; //azul
+                    pixelesDestino[idx + 3] =255; //alpha*/
+
+                    /*pixelesDestino[idx] =resultadoY; //rojo
+                    pixelesDestino[idx + 1] =resultadoY; //verde
+                    pixelesDestino[idx + 2] =resultadoY; //azul
+                    pixelesDestino[idx + 3] =255; //alpha*/
+
+                     //Casilla
+                     //Kernel Regular
+                     /*var idxMult = ((y-1)* canvasFuente.width) + (x - 1) * 4;
+                     var casilla1 = kernel[0][0]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casilla2 = kernel[0][1]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x)) * 4)]; 
+                     var casilla3 = kernel[0][2]  *  pixelesFuente[((((y-1)*canvasFuente.width) + (x + 1)) * 4)]; 
+                     var casilla4 = kernel[1][0]  *  pixelesFuente[((((y)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casilla5 = kernel[1][1]  *  pixelesFuente[((((y)*canvasFuente.width) + (x)) * 4)]; 
+                     var casilla6 = kernel[1][2]  *  pixelesFuente[((((y)*canvasFuente.width) + (x + 1)) * 4)]; 
+                     var casilla7 = kernel[2][0]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x - 1)) * 4)]; 
+                     var casilla8 = kernel[2][1]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x)) * 4)]; 
+                     var casilla9 = kernel[2][2]  *  pixelesFuente[((((y+1)*canvasFuente.width) + (x + 1)) * 4)];   
+
+                    var resultado = casilla1 + casilla2 + casilla3 + casilla4 +
+                                  casilla5 + casilla6 + casilla7 + casilla8 + casilla9;
+                    
+                                  
+                    pixelesDestino[idx] =resultado; //rojo
+                    pixelesDestino[idx + 1] =resultado; //verde
+                    pixelesDestino[idx + 2] =resultado; //azul
+                    pixelesDestino[idx + 3] =255; //alpha*/
+                    
+                    
+                     /*pixelesDestino[idx] =pixelesFuente[idx]; //rojo
+                    pixelesDestino[idx + 1] =pixelesFuente[idx + 1]; //verde
+                    pixelesDestino[idx + 2] =pixelesFuente[idx + 2]; //azul
+                    pixelesDestino[idx + 3] =pixelesFuente[idx + 3]; //alpha*/
+                }
+            }
+
+            ctxDestino.putImageData(imgDataDestino,0,0);
+        }
+
+    </script>
+</body>
+</html>
