@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convoluciones</title>
+</head>
+<body>
+    <!-- Dos elementos canvas para mostrar la imagen original y el resultado de la convolución -->
+    <canvas id="canvas"></canvas>
+    <canvas id="resultado"></canvas>
+
+    <script type="text/javascript">
+
+        // Carga una imagen llamada "imagen.png" y ejecuta la función imageLoaded cuando esté cargada
+        var image = new Image();
+        image.onload = imageLoaded;
+        image.src = "yo.jpg"
+
+        function imageLoaded(){
+
+            // Obtiene el contexto 2D del canvas original
+            var canvas = document.getElementById("canvas");
+            var ctx = canvas.getContext("2d");
+
+            // Configura el tamaño del canvas para que coincida con el de la imagen
+            canvas.width = image.width;
+            canvas.height = image.height;
+
+            // Dibuja la imagen en el canvas original
+            ctx.drawImage(image, 0, 0, image.width, image.height);
+
+            // Obtiene el elemento canvas de destino para mostrar el resultado de la convolución
+            var resultado = document.getElementById("resultado");
+
+            // Llama a la función convolucionar para procesar la imagen
+            convolucionar(canvas, resultado);
+
+        }
+
+        function convolucionar(canvasFuente, canvasDestino){
+
+            // Obtiene el contexto 2D de la imagen de origen y sus datos de píxeles
+            var ctxFuente = canvasFuente.getContext("2d");
+            var imgDataFuente = ctxFuente.getImageData(0, 0, canvasFuente.width, canvasFuente.height);
+            var pixelesFuente = imgDataFuente.data;
+
+            // Configura el tamaño del canvas de destino para que coincida con el de la imagen de origen
+            canvasDestino.width = canvasFuente.width;
+            canvasDestino.height = canvasFuente.height;
+
+            // Obtiene el contexto 2D del canvas de destino y sus datos de píxeles
+            var ctxDestino = canvasDestino.getContext("2d");
+            var imgDataDestino = ctxDestino.getImageData(0, 0, canvasDestino.width, canvasDestino.height);
+            var pixelesDestino = imgDataDestino.data;
+
+            // Define los kernels para la convolución (sobelVertical y sobelHorizontal)
+            var sobelVertical = [
+                [-1, 0, 1],
+                [-2, 0, 2],
+                [-1, 0, 1],
+            ];
+
+            var sobelHorizontal = [
+                [-1,-2,-1],
+                [0, 0, 0],
+                [1, 2, 1],
+            ];
+
+            // Itera a través de los píxeles de la imagen de origen
+            for (var y = 1; y < canvasFuente.height - 1; y++){
+                for (var x = 1; x < canvasFuente.width - 1; x++){
+
+                    // Calcula el índice del píxel actual en los datos de píxeles
+                    var idx = ((y * canvasFuente.width) + x) * 4;
+                    var totalYRed = 0;
+                    var totalXRed = 0;
+                    var totalYGreen = 0;
+                    var totalXGreen = 0;
+                    var totalYBlue = 0;
+                    var totalXBlue = 0;
+
+                    // Realiza la convolución para cada canal de color (rojo, verde y azul)
+                    for( var kernelY = 0; kernelY < 3; kernelY++){
+                        for( var kernelX = 0; kernelX < 3; kernelX++){
+
+                            // Calcula el índice del píxel en el kernel
+                            var pixelOffset = ((((y + (kernelY - 1)) * canvasFuente.width) + (x + (kernelX - 1))) * 4);
+
+                            // Realiza la convolución para cada canal de color
+                            totalYRed += sobelVertical[kernelY][kernelX] * pixelesFuente[pixelOffset];
+                            totalXRed += sobelHorizontal[kernelY][kernelX] * pixelesFuente[pixelOffset];
+
+                            totalYGreen += sobelVertical[kernelY][kernelX] * pixelesFuente[pixelOffset + 1];
+                            totalXGreen += sobelHorizontal[kernelY][kernelX] * pixelesFuente[pixelOffset + 1];
+
+                            totalYBlue += sobelVertical[kernelY][kernelX] * pixelesFuente[pixelOffset + 2];
+                            totalXBlue += sobelHorizontal[kernelY][kernelX] * pixelesFuente[pixelOffset + 2];
+                        }
+                    }
+
+                    // Calcula la magnitud de la convolución para cada canal de color
+                    var magRed = Math.sqrt((totalXRed * totalXRed) + (totalYRed * totalYRed));
+                    var magGreen = Math.sqrt((totalXGreen * totalXGreen) + (totalYGreen * totalYGreen));
+                    var magBlue = Math.sqrt((totalXBlue * totalXBlue) + (totalYBlue * totalYBlue));
+
+                    // Asegura que los valores estén en el rango correcto (0-255)
+                    magRed = (magRed < 0) ? 0 : magRed;
+                    magRed = (magRed > 255) ? 255 : magRed;
+
+                    magGreen = (magGreen < 0) ? 0 : magGreen;
+                    magGreen = (magGreen > 255) ? 255 : magGreen;
+
+                    magBlue = (magBlue < 0) ? 0 : magBlue;
+                    magBlue = (magBlue > 255) ? 255 : magBlue;
+
+                    // Asigna los valores calculados al píxel en el canvas de destino, combinando con los valores originales
+                    pixelesDestino[idx] = (pixelesFuente[idx] * 0.7) + (magRed * 0.3); // Canal rojo
+                    pixelesDestino[idx + 1] = (pixelesFuente[idx + 1] * 0.7) + (magGreen * 0.3); // Canal verde
+                    pixelesDestino[idx + 2] = (pixelesFuente[idx + 2] * 0.7) + (magBlue * 0.3); // Canal azul
+                    pixelesDestino[idx + 3] = 255; // Canal alpha
+
+                }
+            }
+
+            // Coloca los datos de píxeles procesados en el canvas de destino
+            ctxDestino.putImageData(imgDataDestino, 0, 0);
+
+        }
+    </script>
+</body>
+</html>
